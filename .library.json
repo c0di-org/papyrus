@@ -1,9 +1,9 @@
 {
   "name": "Pad",
-  "tagline": "A quiet place for every thought.",
+  "tagline": "It's for taking notes.",
   "description": "Local-first Markdown notes that stay private, portable, and yours.",
   "category": "Productivity",
-  "accent": "#0A84FF",
+  "accent": "#E3E0CF",
   "featured": false,
   "sourceVisible": true,
   "provenance": "library-managed",
