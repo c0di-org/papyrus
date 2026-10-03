@@ -137,3 +137,11 @@ playwright-cli -s=pad-ux run-code "$(cat scripts/check-editor-ux.js)"
 ```
 
 This creates a uniquely named test note in that browser's local notebook and checks cursor placement, list nesting, undo/redo, software keyboard input, autosave/reopening, search, and phone layouts. Use a disposable session; it does not operate on the native app's notebook.
+
+Android Library builds publish an unsigned APK when the app version changes on `main`. If a release build fails before uploading its artifact, retry the corrected checkout without another version bump:
+
+```sh
+gh workflow run library-unsigned-apk.yml --repo c0di-org/papyrus --ref main -f publish=true
+```
+
+A manual run with the default `publish=false` builds and verifies the APK without uploading a Library candidate.

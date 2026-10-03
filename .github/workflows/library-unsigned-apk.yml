@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Upload the APK for Library (retry a failed release)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -28,6 +33,7 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           BEFORE_SHA: ${{ github.event.before }}
+          DISPATCH_PUBLISH: ${{ inputs.publish || false }}
         run: |
           set -euo pipefail
           CURRENT="$(jq -r '.version' src-tauri/tauri.conf.json)"
@@ -42,6 +48,9 @@ jobs:
             if [ "$CURRENT" != "$PREVIOUS" ]; then
               CHANGED=true
             fi
+          fi
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$DISPATCH_PUBLISH" = "true" ]; then
+            CHANGED=true
           fi
 
           echo "version=$CURRENT" >> "$GITHUB_OUTPUT"
@@ -59,6 +68,10 @@ jobs:
           java-version: '17'
 
       - uses: android-actions/setup-android@v3
+        with:
+          # Google no longer serves the deprecated SDK "tools" package that v3
+          # requests by default. Command-line tools are installed by the action.
+          packages: platform-tools
 
       - name: Install Android SDK and NDK
         run: |
@@ -98,7 +111,7 @@ jobs:
           cp "$APK" library-artifact/pad-release-unsigned.apk
 
       - name: Upload unsigned APK for Library
-        if: github.event_name == 'push' && steps.release.outputs.version_changed == 'true'
+        if: steps.release.outputs.version_changed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: library-unsigned-apk
