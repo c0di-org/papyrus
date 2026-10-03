@@ -26,7 +26,12 @@ type Name =
   | "sun"
   | "trash"
   | "undo"
-  | "check";
+  | "check"
+  | "checklist"
+  | "numbers"
+  | "indent"
+  | "outdent"
+  | "redo";
 
 const paths: Record<Name, string | string[]> = {
   all: "M4 5.5A1.5 1.5 0 0 1 5.5 4h3A1.5 1.5 0 0 1 10 5.5v3A1.5 1.5 0 0 1 8.5 10h-3A1.5 1.5 0 0 1 4 8.5v-3ZM14 5.5A1.5 1.5 0 0 1 15.5 4h3A1.5 1.5 0 0 1 20 5.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 14 8.5v-3ZM4 15.5A1.5 1.5 0 0 1 5.5 14h3a1.5 1.5 0 0 1 1.5 1.5v3A1.5 1.5 0 0 1 8.5 20h-3A1.5 1.5 0 0 1 4 18.5v-3ZM14 15.5a1.5 1.5 0 0 1 1.5-1.5h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3a1.5 1.5 0 0 1-1.5-1.5v-3Z",
@@ -54,6 +59,11 @@ const paths: Record<Name, string | string[]> = {
   sun: "M12 4v2m0 12v2M6.3 6.3l1.4 1.4m8.6 8.6 1.4 1.4m0-11.4-1.4 1.4m-8.6 8.6-1.4 1.4M4 12h2m12 0h2m-5.8 0a2.2 2.2 0 1 1-4.4 0 2.2 2.2 0 0 1 4.4 0Z",
   trash: "M4 7h16m-10 4v5m4-5v5M9 7l1-3h4l1 3m-9 0 1 13h10l1-13",
   undo: "M9 7 4 12l5 5M5 12h9a5 5 0 0 1 5 5",
+  checklist: "M9 6h11M9 12h11M9 18h11M3 5l1 1 2-2M3 11l1 1 2-2M3 17l1 1 2-2",
+  numbers: "M10 6h10M10 12h10M10 18h10M4 4h1v4M4 8h2M3 11h3v2H3v2h3M3 18h3v3H3M4 19.5h2",
+  indent: "M10 5h10M10 10h10M10 15h10M10 20h10M3 9l3 3-3 3",
+  outdent: "M10 5h10M10 10h10M10 15h10M10 20h10M6 9l-3 3 3 3",
+  redo: "m15 7 5 5-5 5M19 12H10a5 5 0 0 0-5 5",
   check: "m5 12 4 4L19 6",
 };
 

@@ -4,6 +4,7 @@ import App from "./App";
 import "./styles.css";
 import "./system-theme.css";
 import "./system-shell.css";
+import "./editor-ux.css";
 import "./native-shell";
 
 // Mobile browsers report `100vh` as the *large* viewport (URL bar hidden), so a
@@ -17,7 +18,7 @@ function trackViewportHeight() {
   const apply = () => {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    root.style.setProperty("--app-height", `${height}px`);
+    root.style.setProperty("--app-height", `${Math.min(height, window.visualViewport?.height ?? height)}px`);
 
     // An embedded note often lives in a small square-ish panel, where the normal
     // two-pane notebook is needlessly dense. Keep tall, phone-sized views in the

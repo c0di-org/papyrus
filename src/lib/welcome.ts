@@ -38,7 +38,7 @@ Write something on your phone, pick it up on your desktop or on the web. Pad is 
 
 - [ ] Tick this box — it's a real \`- [ ]\` in the Markdown underneath
 - [ ] Press ⌘N for a new note, ⌘K to search
-- [ ] Right-click this page for headings, lists, links, and images
+- [ ] Use the formatting bar for headings, lists, links, and images
 - [ ] Open Settings → Everywhere and add your other device
 - [ ] Open Settings and try one of these seven themes
 
@@ -51,7 +51,7 @@ That strip is an image living *inside this note*, not a file sitting next to it.
     id: MARKDOWN_ID,
     body: `# Markdown, without the ceremony
 
-No toolbars to hunt. No blocks to summon. You type, and the page keeps up.
+Write directly on the page. The formatting bar keeps headings, lists, and checkboxes one tap away.
 
 ## Shortcuts that promote as you type
 
@@ -67,7 +67,7 @@ Checklists behave the way you'd hope: Enter continues the list, the caret lands 
 - [x] Something already done
 - [ ] Something still waiting
 
-> Right-click anywhere on the page for headings, lists, links, code, and images.
+> Use the formatting bar for lists, bold, and italic. Open Text for headings, links, code, and images. Tab indents a list item; Shift+Tab moves it back. Undo works for typing and formatting.
 
 ## When you want to see the machinery
 

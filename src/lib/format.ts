@@ -10,11 +10,13 @@ export function relativeTime(timestamp: string) {
 export function plainPreview(markdown: string) {
   return markdown
     .replace(/```[\s\S]*?```/g, "")
-    .replace(/!?(\[[^\]]*\]\([^)]*\))/g, "$1")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/[>#*_`|]/g, "")
     .replace(/- \[[ xX]\]/g, "")
     .replace(/\s+/g, " ")
-    .trim();
+    .trim()
+    .slice(0, 155);
 }
 
 export function titleFromMarkdown(markdown: string) {

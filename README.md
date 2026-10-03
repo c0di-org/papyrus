@@ -31,8 +31,8 @@ It is a **paper-first** Markdown notebook: type `## Heading` or `- [ ] Task` and
 
 ## ✦ What's in the box
 
-- **📝 Paper-first editor** — WYSIWYG feel, canonical Markdown underneath. Right-click for headings, lists, checklists, links, code, and images. There's a raw-source CodeMirror escape hatch for when you want to see the machinery.
-- **☑️ Checklists that actually behave** — `- [ ]` toggles, continues on Enter, and the caret lands exactly where you'd expect.
+- **📝 Paper-first editor** — WYSIWYG feel, canonical Markdown underneath. A visible formatting bar puts lists, checklists, bold, and italic within reach; its Text menu adds headings, links, code, and images. There's a raw-source CodeMirror escape hatch for when you want to see the machinery.
+- **☑️ Lists that keep up** — Enter splits at the caret, an empty item ends the list, Tab / Shift+Tab adjusts nesting, and undo restores typing, formatting, and checkbox changes. Nested lists stay intact when saved.
 - **⚡ Markdown shortcuts** — `## `, `- `, `1. `, `- [ ] ` auto-promote as you type.
 - **🗂️ Folders that make sense** — expandable tree, drag-and-drop notes between folders, reorder, rename, per-folder counts.
 - **🔍 Instant full-text search** — SQLite FTS, recency sorting, `⌘K` to jump, `⌘N` for a fresh page.
@@ -125,3 +125,15 @@ See [`BRANDING.md`](BRANDING.md) before changing any remaining `papyrus` identif
 <sub>Write it once. Find it wherever you are.</sub>
 
 </div>
+
+## Verify everyday editing
+
+`npm run build` checks TypeScript and produces the web bundle. `npm test` covers Markdown rendering, previews, welcome content, and crypto parity.
+
+For browser regression checks, start `npm run dev`, open a disposable Playwright CLI browser session at `http://127.0.0.1:1420`, then run:
+
+```sh
+playwright-cli -s=pad-ux run-code "$(cat scripts/check-editor-ux.js)"
+```
+
+This creates a uniquely named test note in that browser's local notebook and checks cursor placement, list nesting, undo/redo, software keyboard input, autosave/reopening, search, and phone layouts. Use a disposable session; it does not operate on the native app's notebook.

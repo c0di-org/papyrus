@@ -68,6 +68,7 @@ function App() {
   const [sourceMode, setSourceMode] = useState(false);
   const [mobileScreen, setMobileScreen] = useState<MobileScreen>(forceNewNote ? "note" : "list");
   const [loading, setLoading] = useState(true);
+  const [saveStates, setSaveStates] = useState<Record<string, "saving" | "saved" | "error">>({});
   const [newCategory, setNewCategory] = useState(false);
   const [categoryName, setCategoryName] = useState("");
   const [categoryMenu, setCategoryMenu] = useState<string | null>(null);
@@ -104,10 +105,14 @@ function App() {
   const searching = search.trim().length > 0;
   const uncategorized = useMemo(() => notes.filter((note) => !note.categoryId), [notes]);
 
-  const loadNotes = useCallback(async (place = filter, query = search) => {
+  const listQuery = useRef({ filter, search });
+  listQuery.current = { filter, search };
+  const listRequest = useRef(0);
+  const loadNotes = useCallback(async (place = listQuery.current.filter, query = listQuery.current.search) => {
+    const request = ++listRequest.current;
     const list = await api.listNotes(place, query);
-    setNotes(list);
-  }, [filter, search]);
+    if (request === listRequest.current && place === listQuery.current.filter && query === listQuery.current.search) setNotes(list);
+  }, []);
 
   const refreshNotebook = useCallback(async () => {
     const [loadedCategories, loadedNotes] = await Promise.all([api.listCategories(), api.listNotes(filter, search)]);
@@ -265,9 +270,11 @@ function App() {
           currentRef.current = combined; setCurrent(combined);
         }
         window.setTimeout(() => { void loadNotes(); }, 350);
+        if (!dirtyDrafts.current.has(note.id)) setSaveStates((states) => ({ ...states, [note.id]: "saved" }));
         scheduleSync();
         return true;
       } catch (error) {
+        setSaveStates((states) => ({ ...states, [note.id]: "error" }));
         setNotice(error instanceof Error ? error.message : "Could not save this note.");
         return false;
       }
@@ -284,6 +291,7 @@ function App() {
   };
 
   const schedulePersist = (note: Note) => {
+    setSaveStates((states) => ({ ...states, [note.id]: "saving" }));
     dirtyDrafts.current.set(note.id, note);
     clearPendingSave(note.id);
     const timer = window.setTimeout(() => {
@@ -331,7 +339,6 @@ function App() {
     unsavedNoteIds.current.add(note.id);
     currentRef.current = note; setCurrent(note); setNoteConflict(null); setReviewConflict(false); setOverflow(false); setNoteMenu(null); setMobileScreen("note"); setSourceMode(false);
     if (categoryId) { setActiveFolderId(categoryId); setExpanded((prev) => new Set(prev).add(categoryId)); }
-    window.setTimeout(() => document.querySelector<HTMLElement>(".paper-editor")?.focus(), 50);
   };
 
   const createNote = () => startNote(view === "notes" ? activeFolderId : null);
@@ -558,11 +565,17 @@ function App() {
   const sidebarSyncLabel = syncStatus?.status === "Offline" && pairedDeviceCount <= 0 ? "Not set up" : syncStatus?.status;
 
   const noteRow = (note: NoteListItem, variant: "rich" | "compact") => (
-    <button key={note.id} className={`note-row ${variant}${current?.id === note.id ? " selected" : ""}${draggingId === note.id ? " dragging" : ""}`} onClick={() => void openNote(note.id)} draggable={view !== "trash"} onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", note.id); setDraggingId(note.id); setNoteMenu(null); }} onDragEnd={() => { setDraggingId(null); setDropTarget(null); }} onContextMenu={(event) => { event.preventDefault(); setOverflow(false); setCategoryMenu(null); setNoteMenu({ id: note.id, x: Math.min(event.clientX, window.innerWidth - 200), y: Math.min(event.clientY, window.innerHeight - 160) }); }}>
+    <div className="note-row-wrap" key={note.id}>
+    <button aria-label={noteTitle(note)} aria-current={current?.id === note.id ? "page" : undefined} className={`note-row ${variant}${current?.id === note.id ? " selected" : ""}${draggingId === note.id ? " dragging" : ""}`} onClick={() => void openNote(note.id)} draggable={view !== "trash"} onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", note.id); setDraggingId(note.id); setNoteMenu(null); }} onDragEnd={() => { setDraggingId(null); setDropTarget(null); }} onContextMenu={(event) => { event.preventDefault(); setOverflow(false); setCategoryMenu(null); setNoteMenu({ id: note.id, x: Math.min(event.clientX, window.innerWidth - 200), y: Math.min(event.clientY, window.innerHeight - 160) }); }}>
       <span className="note-row-title">{noteTitle(note)}</span>
       {variant === "rich" && <span className="note-row-preview">{note.preview || "No additional text"}</span>}
       <span className="note-row-meta">{variant === "rich" && <span>{note.categoryName || (view === "trash" ? "In Trash" : "")}</span>}<time>{relativeTime(note.updatedAt)}</time></span>
     </button>
+    <button className="note-row-more" aria-label={`Actions for ${noteTitle(note)}`} title="Note actions" onClick={(event) => {
+      const rect = event.currentTarget.getBoundingClientRect(); setOverflow(false); setCategoryMenu(null);
+      setNoteMenu((menu) => menu?.id === note.id ? null : { id: note.id, x: Math.max(8, Math.min(rect.left, window.innerWidth - 208)), y: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 200)) });
+    }}><Icon name="dots" size={17} /></button>
+    </div>
   );
 
   return (
@@ -582,7 +595,7 @@ function App() {
           <button role="tab" aria-selected={mode === "folders"} className={mode === "folders" ? "active" : ""} onClick={() => changeMode("folders")}><Icon name="folder" size={15} />Folders</button>
         </div>}
 
-        <label className="search"><Icon name="search" size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search notes" aria-label="Search notes" /><kbd>⌘ K</kbd></label>
+        <label className="search"><Icon name="search" size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") setSearch(""); if (event.key === "Enter" && notes[0]) void openNote(notes[0].id); }} placeholder="Search notes" aria-label="Search notes" />{search ? <button type="button" className="clear-search" aria-label="Clear search" onClick={() => setSearch("")}>×</button> : <kbd>⌘ K</kbd>}</label>
 
         <div className="rail-list">
           {loading ? <ListSkeleton />
@@ -596,7 +609,7 @@ function App() {
                   return <div className="folder-group" key={category.id}>
                     <div className={`folder-head${activeFolderId === category.id ? " active" : ""}${dropTarget === category.id ? " drop-target" : ""}`} onContextMenu={(event) => { if (renamingCategory === category.id) return; event.preventDefault(); setNoteMenu(null); setActiveFolderId(category.id); setCategoryMenu(category.id); }} onDragOver={(event) => { if (!draggingId) return; event.preventDefault(); event.dataTransfer.dropEffect = "move"; setDropTarget(category.id); }} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropTarget((target) => target === category.id ? null : target); }} onDrop={(event) => { event.preventDefault(); const id = event.dataTransfer.getData("text/plain") || draggingId; setDraggingId(null); setDropTarget(null); if (id) void moveNoteToFolder(id, category.id); }}>
                       {renamingCategory === category.id
-                        ? <form className="folder-rename" onSubmit={(event) => { event.preventDefault(); void renameFolder(); }}><Icon name="folder" size={16} /><input autoFocus value={renameCategoryName} maxLength={80} onChange={(event) => setRenameCategoryName(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") setRenamingCategory(null); }} onBlur={() => { if (!renameCategoryName.trim()) setRenamingCategory(null); }} /></form>
+                        ? <form className="folder-rename" onSubmit={(event) => { event.preventDefault(); void renameFolder(); }}><Icon name="folder" size={16} /><input autoFocus value={renameCategoryName} aria-label="Folder name" maxLength={80} onChange={(event) => setRenameCategoryName(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") setRenamingCategory(null); }} onBlur={() => { if (!renameCategoryName.trim()) setRenamingCategory(null); }} /></form>
                         : <button className="folder-toggle" onClick={() => selectFolder(category.id)} aria-expanded={open}>
                             <Icon name="chevronDown" size={15} className={open ? "chevron" : "chevron collapsed"} />
                             <Icon name="folder" size={16} className="folder-icon" />
@@ -617,7 +630,7 @@ function App() {
                 {uncategorized.length > 0 && <div className="loose-notes">{uncategorized.map((note) => noteRow(note, "rich"))}</div>}
                 {draggingId && notes.find((note) => note.id === draggingId)?.categoryId && <div className={`unfiled-dropzone${dropTarget === "__none__" ? " drop-target" : ""}`} onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; setDropTarget("__none__"); }} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropTarget((target) => target === "__none__" ? null : target); }} onDrop={(event) => { event.preventDefault(); const id = event.dataTransfer.getData("text/plain") || draggingId; setDraggingId(null); setDropTarget(null); if (id) void moveNoteToFolder(id, null); }}><Icon name="file" size={15} />Move out of folder</div>}
                 {newCategory
-                  ? <form className="folder-rename new" onSubmit={(event) => { event.preventDefault(); void addCategory(); }}><Icon name="folderPlus" size={16} /><input autoFocus value={categoryName} onChange={(event) => setCategoryName(event.target.value)} onBlur={() => { if (!categoryName.trim()) setNewCategory(false); }} placeholder="Folder name" /></form>
+                  ? <form className="folder-rename new" onSubmit={(event) => { event.preventDefault(); void addCategory(); }}><Icon name="folderPlus" size={16} /><input autoFocus value={categoryName} onChange={(event) => setCategoryName(event.target.value)} onBlur={() => { if (!categoryName.trim()) setNewCategory(false); }} aria-label="New folder name" placeholder="Folder name" /></form>
                   : <button className="add-folder" onClick={() => setNewCategory(true)}><Icon name="plus" size={15} />New Folder</button>}
               </>}
         </div>
@@ -635,6 +648,9 @@ function App() {
             <button className="mobile-back icon-button" onClick={() => setMobileScreen("list")} aria-label="Back to notes"><Icon name="arrowLeft" /><span>Notes</span></button>
             <button className="icon-button editor-expand-toggle" onClick={() => setRailCollapsed((collapsed) => !collapsed)} aria-label={railCollapsed ? "Show notes list" : "Hide notes list"} title={railCollapsed ? "Show notes list" : "Focus editor"}><Icon name={railCollapsed ? "panelRight" : "panelLeft"} /></button>
             <div className="note-breadcrumb"><Icon name={currentCategory ? "folder" : "file"} size={15} /><span>{currentCategory?.name || "No folder"}</span></div>
+            {!current.deletedAt && <button className={`save-status ${saveStates[current.id] === "error" ? "save-error" : ""}`} disabled={saveStates[current.id] !== "error"} onClick={() => void flushPersist(current.id)} title="Your edits are saved on this device" aria-live="polite">
+              {saveStates[current.id] === "error" ? "Retry save" : !current.body.trim() && unsavedNoteIds.current.has(current.id) ? "New note" : saveStates[current.id] === "saving" ? "Saving…" : <><Icon name="check" size={13} />Saved</>}
+            </button>}
             <div className="note-actions">
               {!current.deletedAt && <button className="icon-button" onClick={() => void share()} aria-label="Share note"><Icon name="share" /></button>}
               <div className="menu-wrap"><button className="icon-button" onClick={() => setOverflow((shown) => !shown)} aria-label="More note actions"><Icon name="dots" /></button>
@@ -647,7 +663,7 @@ function App() {
           {current.deletedAt ? <div className="trashed-note"><div><Icon name="trash" size={20} /><strong>This note is in Trash</strong><span>It will be permanently removed after 30 days.</span></div><button className="primary-button" onClick={() => void restoreCurrent()}>Restore Note</button></div> : <>
             {noteConflict && <div className="conflict-banner"><span><i>!</i><span><strong>Two versions need your attention</strong><small>Both are safe. Choose which one to keep.</small></span></span><button onClick={() => setReviewConflict(true)}>Review Versions</button></div>}
             <div className={`document ${sourceMode ? "source" : "paper"}`}>
-              {sourceMode ? <div className="writing-surface source-surface"><Suspense fallback={<div className="editor-loading">Opening Markdown source…</div>}><MarkdownEditor value={current.body} onChange={(body) => changeCurrent({ body })} onReady={(view) => { editor.current = view; }} /></Suspense></div> : <PaperEditor value={current.body} onChange={(body) => changeCurrent({ body })} onInsertImage={addImage} onNotice={setNotice} />}
+              {sourceMode ? <div className="writing-surface source-surface"><Suspense fallback={<div className="editor-loading">Opening Markdown source…</div>}><MarkdownEditor key={current.id} value={current.body} onChange={(body) => changeCurrent({ body })} onReady={(view) => { editor.current = view; }} /></Suspense></div> : <PaperEditor key={current.id} autoFocus={unsavedNoteIds.current.has(current.id)} value={current.body} onChange={(body) => changeCurrent({ body })} onInsertImage={addImage} onNotice={setNotice} />}
             </div>
           </>}
         </> : <EmptyNote onCreate={createNote} />}
