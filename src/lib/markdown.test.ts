@@ -32,4 +32,16 @@ describe("renderMarkdown", () => {
     expect(html).toContain('type="checkbox"');
     expect(html).toContain('checked=""');
   });
+
+  it("reopens an empty task as a checkbox, including a completed task", () => {
+    const html = renderMarkdown("- [ ]\n- [x]");
+    expect(html.match(/type="checkbox"/g)).toHaveLength(2);
+    expect(html).toContain('checked=""');
+  });
+
+  it("leaves task markers in code and escaped text literal", () => {
+    const html = renderMarkdown("```\n- [ ]\n```\n\n- \\[ ]");
+    expect(html).not.toContain('type="checkbox"');
+    expect(html).not.toContain("\uFEFF");
+  });
 });

@@ -12,6 +12,20 @@ const markdown = new MarkdownIt({ html: false, linkify: true, typographer: true,
   enabled: true,
 });
 
+// Markdown parsers trim an empty task's trailing space. Give only empty list
+// items a cursor host before the task plugin runs, so a newly continued task
+// reopens as a checkbox. Its Markdown remains the portable "- [ ]" marker.
+markdown.core.ruler.before("github-task-lists", "empty-task-items", (state) => {
+  for (let index = 2; index < state.tokens.length; index++) {
+    const token = state.tokens[index];
+    if (token.type !== "inline" || state.tokens[index - 1].type !== "paragraph_open" ||
+      state.tokens[index - 2].type !== "list_item_open" || !/^\[[ xX]\]$/.test(token.content)) continue;
+    const text = token.children?.[0];
+    if (text?.type !== "text") continue;
+    token.content += " \uFEFF"; text.content += " \uFEFF";
+  }
+});
+
 export function renderMarkdown(source: string) {
   return markdown.render(source);
 }

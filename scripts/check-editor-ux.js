@@ -84,6 +84,7 @@ async (page) => {
     const { renderMarkdown } = await import("/src/lib/markdown.ts");
     const { markdownFromPaper } = await import("/src/lib/paper.ts");
     const fixtures = [
+      "- [ ]\n- [x]",
       "- Parent\n  - Child\n    - Grandchild\n- Sibling",
       "- [ ] Parent\n  - [x] Child\n- [x] Done",
       "4. Four\n5. Five\n   - Child",
