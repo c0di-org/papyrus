@@ -117,5 +117,14 @@ async (page) => {
   await page.getByRole("complementary").getByRole("button", { name: testTitle, exact: true }).click();
   await page.setViewportSize({ width: 1120, height: 760 });
   await page.screenshot({ path: "output/playwright/editor-desktop.png" });
+  await body.evaluate((el) => {
+    const childList = document.createElement("ul");
+    childList.innerHTML = '<li class="task-list-item"><input type="checkbox" checked contenteditable="false">Nested completed task</li>';
+    el.querySelectorAll("li")[1].append(childList);
+  });
+  await caret(1, "groceries"); await page.keyboard.press("Enter");
+  assert(await body.getByRole("checkbox").count() === 4, "Splitting a parent removed a nested checkbox");
+  assert((await markdown()).includes("  - [x] Nested completed task"), "Splitting a parent lost a nested task's checked state");
+  await button("Undo").click();
   return { result: "Passed", flows: "headings, checklist split/continue/exit, nested lists, cursor, undo/redo, software keyboard, autosave/reopen, search, note actions, phone layout", markdownRoundTrips: roundTrips };
 }

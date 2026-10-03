@@ -469,7 +469,7 @@ export default function PaperEditor({ value, onChange, onInsertImage, onNotice, 
     if (taskCheckbox(li)) { ensureCheckbox(next); next.append(cursor); }
     else next.append(cursor);
     next.append(trailing.extractContents());
-    next.querySelectorAll('input[type="checkbox"]').forEach((check) => { if (check !== taskCheckbox(next)) check.remove(); });
+    next.querySelectorAll(':scope > input[type="checkbox"], :scope > p > input[type="checkbox"]').forEach((check) => { if (check !== taskCheckbox(next)) check.remove(); });
     list.insertBefore(next, li.nextSibling); placeCaretInText(cursor); return true;
   };
 
