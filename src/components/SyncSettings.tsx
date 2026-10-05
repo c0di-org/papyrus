@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { relativeTime } from "../lib/format";
+import { encodePairingLink, pairingCodeFromText } from "../lib/pairingLink";
 import type { PairingOffer, SyncDevice, SyncStatus } from "../types";
 import { Icon } from "./Icon";
 
@@ -9,11 +10,15 @@ type Props = {
   onStatusChange: (status: SyncStatus) => void;
   onNotebookChanged: () => Promise<void>;
   onNotice: (message: string) => void;
+  // A code carried by a pairing link the app was opened with. Consumed once,
+  // then cleared so a reload does not replay it.
+  incomingPairCode?: string | null;
+  onIncomingPairCodeHandled?: () => void;
 };
 
 type PairView = "host" | "join" | "waiting" | null;
 
-export default function SyncSettings({ status, onStatusChange, onNotebookChanged, onNotice }: Props) {
+export default function SyncSettings({ status, onStatusChange, onNotebookChanged, onNotice, incomingPairCode, onIncomingPairCodeHandled }: Props) {
   const [busy, setBusy] = useState(false);
   const [pairView, setPairView] = useState<PairView>(null);
   const [offer, setOffer] = useState<PairingOffer | null>(null);
@@ -24,6 +29,12 @@ export default function SyncSettings({ status, onStatusChange, onNotebookChanged
   const [deviceName, setDeviceName] = useState(status?.localDeviceName || "");
   const [revoke, setRevoke] = useState<SyncDevice | null>(null);
   const polling = useRef(false);
+  const incomingHandled = useRef(false);
+
+  // Links point at the site they were opened on, except in the installed app,
+  // whose own origin is not reachable from another computer.
+  const linkOrigin = api.isNativeApp() ? undefined : window.location.origin;
+  const pairingLink = offer ? encodePairingLink(offer.code, linkOrigin) : "";
 
   useEffect(() => { if (status?.localDeviceName) setDeviceName(status.localDeviceName); }, [status?.localDeviceName]);
 
@@ -67,6 +78,16 @@ export default function SyncSettings({ status, onStatusChange, onNotebookChanged
     }
   };
 
+  const copyPairingLink = async () => {
+    if (!pairingLink) return;
+    try {
+      await navigator.clipboard.writeText(pairingLink);
+      onNotice("Pairing link copied");
+    } catch {
+      setPairMessage("Copy is unavailable here. Select the link below and copy it manually.");
+    }
+  };
+
   const startHostPairing = async () => {
     setBusy(true); setPairMessage("Creating a private one-time code…");
     try {
@@ -74,7 +95,7 @@ export default function SyncSettings({ status, onStatusChange, onNotebookChanged
       setOffer(next);
       const QRCode = await import("qrcode");
       setQrCode(await QRCode.default.toDataURL(next.code, { width: 244, margin: 1, color: { dark: "#252a32", light: "#ffffff" }, errorCorrectionLevel: "M" }));
-      setPairMessage("Scan this on the device you want to add."); setPairView("host");
+      setPairMessage("Scan this on a phone, or open the link on another computer."); setPairView("host");
     } catch (error) { onNotice(error instanceof Error ? error.message : "Could not create a pairing code."); setPairView(null); }
     finally { setBusy(false); }
   };
@@ -100,14 +121,28 @@ export default function SyncSettings({ status, onStatusChange, onNotebookChanged
   }, [pairView, offer]);
 
   const submitJoin = async (value = joinCode) => {
-    const code = value.trim(); if (!code) return;
+    const code = pairingCodeFromText(value); if (!code) return;
+    setJoinCode(code);
     setBusy(true); setPairMessage("Contacting your other device…");
     try {
       const progress = await api.acceptPairing(code);
       setActiveJoinCode(code); setPairMessage(progress.message); setPairView("waiting");
-    } catch (error) { onNotice(error instanceof Error ? error.message : "That pairing code could not be used."); }
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : "That pairing code could not be used.");
+      // An expired or unreachable link should still land on the paste screen so
+      // the code can be corrected instead of vanishing into a toast.
+      setPairView("join");
+    }
     finally { setBusy(false); }
   };
+
+  // Opening a pairing link starts the handshake on its own: no code to retype.
+  useEffect(() => {
+    if (!incomingPairCode || incomingHandled.current) return;
+    incomingHandled.current = true;
+    onIncomingPairCodeHandled?.();
+    void submitJoin(incomingPairCode);
+  }, [incomingPairCode]);
 
   useEffect(() => {
     if (pairView !== "waiting" || !activeJoinCode) return;
@@ -203,20 +238,21 @@ export default function SyncSettings({ status, onStatusChange, onNotebookChanged
       <div className="pair-dialog" role="dialog" aria-modal="true" aria-labelledby="pair-title">
         <button className="dialog-close" onClick={() => setPairView(null)} aria-label="Close pairing"><span>×</span></button>
         {pairView === "host" && <>
-          <span className="dialog-kicker">Add a device</span><h2 id="pair-title">Scan to pair</h2>
+          <span className="dialog-kicker">Add a device</span><h2 id="pair-title">Scan or send a link</h2>
           <p>{pairMessage}</p>
           <div className="qr-frame">{qrCode ? <img src={qrCode} alt="One-time Pad pairing QR code" /> : <span>Creating code…</span>}</div>
           <div className="pair-expiry"><i />Code expires in about 5 minutes and works once.</div>
+          <button className="primary-button wide" onClick={() => void copyPairingLink()}><Icon name="link" size={16} />Copy pairing link</button>
           <button className="secondary-button wide" onClick={() => void copyPairingCode()}><Icon name="copy" size={16} />Copy code instead</button>
-          <label className="pair-code-fallback"><span>Or select this code to paste on the new device</span><textarea className="pair-code-input" aria-label="Pairing code" rows={3} value={offer?.code || ""} readOnly autoCapitalize="off" autoCorrect="off" spellCheck={false} /></label>
+          <label className="pair-code-fallback"><span>Or select this link to open on the other computer</span><textarea className="pair-code-input" aria-label="Pairing link" rows={3} value={pairingLink} readOnly autoCapitalize="off" autoCorrect="off" spellCheck={false} /></label>
         </>}
         {pairView === "join" && <>
           <span className="dialog-kicker">Pair this device</span><h2 id="pair-title">Bring your notebook here</h2>
-          <p>Scan the one-time code shown on your other Pad device, or paste it below.</p>
+          <p>Open the pairing link on this computer, or scan the code on a phone.</p>
           <p className="pair-merge-note">Nothing is replaced: the notes already on this device join that notebook, and sync out to its other devices.</p>
           <button className="scan-button" disabled={busy} onClick={() => void scanCode()}><span className="scan-corners"><i /><i /><i /><i /></span><strong>Scan QR code</strong><small>Uses your camera only for this scan</small></button>
-          <div className="pair-divider"><span>or paste the code</span></div>
-          <textarea className="pair-code-input" rows={3} value={joinCode} onChange={(event) => setJoinCode(event.target.value)} placeholder="Paste your Pad pairing code" autoCapitalize="off" autoCorrect="off" spellCheck={false} />
+          <div className="pair-divider"><span>or paste the code or link</span></div>
+          <textarea className="pair-code-input" rows={3} value={joinCode} onChange={(event) => setJoinCode(event.target.value)} placeholder="Paste your Pad pairing code or link" autoCapitalize="off" autoCorrect="off" spellCheck={false} />
           <button className="primary-button wide pair-continue" disabled={busy || !joinCode.trim()} onClick={() => void submitJoin()}>{busy ? "Connecting…" : "Continue"}</button>
         </>}
         {pairView === "waiting" && <div className="pair-waiting">

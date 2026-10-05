@@ -23,7 +23,7 @@ Most notes apps want to become your operating system. Pad just wants to keep you
 
 Write a grocery list on your phone, then open it on your desktop or on the web. Start a meeting note at your desk and finish it on the couch. Pad keeps a complete local notebook on every paired device, so editing and search are instant and nothing waits for the network.
 
-It is a **paper-first** Markdown notebook: type `## Heading` or `- [ ] Task` and it quietly becomes one—no toolbars to hunt or blocks to summon. Pair a second device with a QR code and Pad syncs in the background with **end-to-end encryption**. The relay only sees ciphertext and routing IDs, never your notes or folder names.
+It is a **paper-first** Markdown notebook: type `## Heading` or `- [ ] Task` and it quietly becomes one—no toolbars to hunt or blocks to summon. Pair a second device with a QR code or a one-click link and Pad syncs in the background with **end-to-end encryption**. The relay only sees ciphertext and routing IDs, never your notes or folder names.
 
 > *"Your notes, where you are."*
 
@@ -40,7 +40,7 @@ It is a **paper-first** Markdown notebook: type `## Heading` or `- [ ] Task` and
 - **📦 Whole-notebook export** — one ZIP, organized by folder, readable Markdown with YAML metadata. Your notes can always walk out the front door.
 - **🗑️ 30-day Trash** — restore, permanent delete, or empty. Mistakes get a grace period.
 - **🎨 7 themes, 3 fonts** — Pad (warm parchment with real paper-fiber grain), Mist, Graphite, Nord, Solarized, Dracula, Gruvbox.
-- **🔐 Sync everywhere** — QR pairing across phone, desktop, and web; end-to-end encryption; immutable revisions; conflict review that *never overwrites* (Keep Current / Keep Other / Keep Both); and device revocation.
+- **🔐 Sync everywhere** — QR or one-click link pairing across phone, desktop, and web; end-to-end encryption; immutable revisions; conflict review that *never overwrites* (Keep Current / Keep Other / Keep Both); and device revocation.
 - **📴 Offline-first, always** — autosave, background sync every couple minutes and on focus, but editing never once waits for a network round-trip.
 - **📱 Genuinely cross-platform** — macOS, Windows, Linux, **native iOS and Android**, plus the web at [notes.c0di.com](https://notes.c0di.com).
 

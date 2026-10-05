@@ -8,6 +8,7 @@ import { api } from "./lib/api";
 import { newId } from "./lib/ids";
 import { readImageFile } from "./lib/images";
 import { noteTitle, relativeTime, titleFromMarkdown } from "./lib/format";
+import { pairingCodeFromHash } from "./lib/pairingLink";
 import { seedWelcomeNotes } from "./lib/welcome";
 import type { Category, Note, NoteConflict, NoteListItem, SyncStatus } from "./types";
 
@@ -63,6 +64,9 @@ function App() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // A pairing link opens Pad with `#pair=…`; hold the code for the join flow and
+  // clear it from the address bar so it is not replayed or left in history.
+  const [incomingPairCode, setIncomingPairCode] = useState<string | null>(() => pairingCodeFromHash(window.location.hash));
   const [search, setSearch] = useState("");
   const [current, setCurrent] = useState<Note | null>(() => initialDraft.current);
   const [sourceMode, setSourceMode] = useState(false);
@@ -180,6 +184,14 @@ function App() {
       } finally { setLoading(false); }
     })();
   }, []);
+
+  // Opening a pairing link lands in the join flow with no code to retype. Strip
+  // the fragment first so the one-time secret is not left in the address bar.
+  useEffect(() => {
+    if (!incomingPairCode) return;
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+    setSettingsOpen(true);
+  }, [incomingPairCode]);
 
   // Keep the auto-sync gate in sync with the device list without re-arming the
   // timers below (which depend only on `loading`).
@@ -676,7 +688,7 @@ function App() {
           : <><button onClick={() => void duplicateNoteId(noteMenu.id)}><Icon name="copy" />Duplicate</button><button className="danger" onClick={() => void trashNoteId(noteMenu.id)}><Icon name="trash" />Move to Trash</button></>}
       </div>}
 
-      {settingsOpen && <Settings onClose={() => setSettingsOpen(false)} onExport={exportNotebook} theme={theme} onThemeChange={changeTheme} font={font} onFontChange={changeFont} syncStatus={syncStatus} onSyncStatusChange={setSyncStatus} onNotebookChanged={refreshNotebook} onNotice={setNotice} />}
+      {settingsOpen && <Settings onClose={() => setSettingsOpen(false)} onExport={exportNotebook} theme={theme} onThemeChange={changeTheme} font={font} onFontChange={changeFont} syncStatus={syncStatus} onSyncStatusChange={setSyncStatus} onNotebookChanged={refreshNotebook} onNotice={setNotice} incomingPairCode={incomingPairCode} onIncomingPairCodeHandled={() => setIncomingPairCode(null)} />}
       {reviewConflict && noteConflict && <ConflictReview conflict={noteConflict} onClose={() => setReviewConflict(false)} onResolve={(choice) => void resolveConflict(choice)} />}
       {deletingCategory && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDeletingCategory(null); }}><div className="pair-dialog compact" role="alertdialog" aria-modal="true" aria-labelledby="delete-folder-title"><span className="dialog-kicker danger">Remove folder</span><h2 id="delete-folder-title">Remove {deletingCategory.name}?</h2><p>The notes inside stay in your notebook and move to “No folder.” This change syncs to your other devices.</p><div className="dialog-actions"><button className="secondary-button" onClick={() => setDeletingCategory(null)}>Cancel</button><button className="danger-button" onClick={() => void deleteFolder()}>Remove Folder</button></div></div></div>}
       {notice && <button className="toast" onClick={() => setNotice(null)} role="status" aria-live="polite"><Icon name="check" size={16} />{notice}</button>}
@@ -730,9 +742,11 @@ type SettingsProps = {
   onSyncStatusChange: (status: SyncStatus) => void;
   onNotebookChanged: () => Promise<void>;
   onNotice: (message: string) => void;
+  incomingPairCode: string | null;
+  onIncomingPairCodeHandled: () => void;
 };
 
-function Settings({ onClose, onExport, theme, onThemeChange, font, onFontChange, syncStatus, onSyncStatusChange, onNotebookChanged, onNotice }: SettingsProps) {
+function Settings({ onClose, onExport, theme, onThemeChange, font, onFontChange, syncStatus, onSyncStatusChange, onNotebookChanged, onNotice, incomingPairCode, onIncomingPairCodeHandled }: SettingsProps) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -742,7 +756,7 @@ function Settings({ onClose, onExport, theme, onThemeChange, font, onFontChange,
     <div className="settings-topbar"><button className="icon-button" onClick={onClose} aria-label="Close settings"><Icon name="arrowLeft" /></button><strong>Settings</strong></div>
     <div className="settings-scroll"><div className="settings">
       <header><span className="eyebrow">Notebook</span><h1>Settings</h1><p>Your notes stay local-first, readable, and yours—ready on your phone, desktop, and web browser when you pair them.</p></header>
-      <SyncSettings status={syncStatus} onStatusChange={onSyncStatusChange} onNotebookChanged={onNotebookChanged} onNotice={onNotice} />
+      <SyncSettings status={syncStatus} onStatusChange={onSyncStatusChange} onNotebookChanged={onNotebookChanged} onNotice={onNotice} incomingPairCode={incomingPairCode} onIncomingPairCodeHandled={onIncomingPairCodeHandled} />
       <section className="theme-section"><div><strong>Editor appearance</strong><span>Choose a comfortable colour palette for writing.</span></div><div className="theme-grid" role="group" aria-label="Editor appearance">{themes.map((option) => <button className={theme === option.id ? "theme-card selected" : "theme-card"} key={option.id} onClick={() => onThemeChange(option.id)} aria-pressed={theme === option.id}><span className="theme-preview" style={{ background: option.colors[0] }}><i style={{ background: option.colors[1] }} /><b style={{ background: option.colors[2] }} /></span><span><strong>{option.name}</strong><small>{option.description}</small></span>{theme === option.id && <Icon name="check" size={15} />}</button>)}</div></section>
       <section className="font-section"><div><strong>Writing font</strong><span>Use a clean sans serif throughout your notebook.</span></div><div className="font-options" role="group" aria-label="Writing font">{fonts.map((option) => <button className={font === option.id ? "font-option selected" : "font-option"} key={option.id} onClick={() => onFontChange(option.id)} aria-pressed={font === option.id}><span>{option.name}</span><small>{option.description}</small>{font === option.id && <Icon name="check" size={14} />}</button>)}</div></section>
       <section><div><strong>Export your notebook</strong><span>Create a ZIP of readable Markdown files, organized by folder.</span></div><button className="secondary-button" onClick={onExport}><Icon name="archive" size={17} />Export Markdown</button></section>
