@@ -25,6 +25,7 @@ import {
 } from "./pairing.js";
 import * as store from "./store.js";
 import { encodeBase64Url } from "./crypto.js";
+import { encodePairingLink, pairingCodeFromHash } from "../pairingLink";
 
 const RELAY_URL = process.env.PAPYRUS_RELAY;
 const run = RELAY_URL ? describe : describe.skip;
@@ -64,6 +65,10 @@ run("web sync end-to-end against a live relay", () => {
     const offer = await on(hostDb, () => hostStartPairing(hostCtx, RELAY_URL!));
     expect(offer.code).toMatch(/^papyrus-pair-v1:/);
 
+    // The guest gets a link, not the raw code: the fragment must carry it intact.
+    const linkCode = pairingCodeFromHash(new URL(encodePairingLink(offer.code)).hash);
+    expect(linkCode).toBe(offer.code);
+
     // --- Guest bootstraps its own (empty) vault, then accepts the code ---
     const guest = await on(guestDb, async () => {
       const id = await bootstrapVault("Guest Browser");
@@ -72,7 +77,7 @@ run("web sync end-to-end against a live relay", () => {
     });
     const guestCtx: SyncContext = { identity: guest, relay: new RelayClient(RELAY_URL!) };
 
-    const accepted = await on(guestDb, () => guestAcceptPairing(guestCtx, offer.code));
+    const accepted = await on(guestDb, () => guestAcceptPairing(guestCtx, linkCode!));
     expect(accepted.ready).toBe(false);
 
     // --- Host claims the guest, authorizes it, seals + uploads the snapshot ---
@@ -80,7 +85,7 @@ run("web sync end-to-end against a live relay", () => {
     expect(completed.ready).toBe(true);
 
     // --- Guest finishes: opens the sealed snapshot and adopts the vault ---
-    const finished = await on(guestDb, () => guestFinishPairing(guestCtx, offer.code));
+    const finished = await on(guestDb, () => guestFinishPairing(guestCtx, linkCode!));
     expect(finished.ready).toBe(true);
 
     // Guest now shares the host's vault identity...
